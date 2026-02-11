@@ -257,14 +257,22 @@ export default function Home() {
         <div className="text-[1.4rem] font-bold tracking-tight text-text">
           melbo<span className="text-accent">.</span>
         </div>
-        <button
-          className="font-sans text-[0.82rem] py-2.5 px-5 bg-text text-white border-none rounded-full cursor-pointer font-semibold transition-all hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-        >
-          Claim your Melbo
-        </button>
+        <div className="flex items-center gap-4">
+          <a
+            href="/login"
+            className="font-mono text-[0.78rem] font-medium text-text-muted hover:text-accent transition-colors"
+          >
+            Sign in
+          </a>
+          <button
+            className="font-sans text-[0.82rem] py-2.5 px-5 bg-text text-white border-none rounded-full cursor-pointer font-semibold transition-all hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Claim your Melbo
+          </button>
+        </div>
       </nav>
 
       {/* HERO */}
