@@ -19,6 +19,7 @@ export default function Home() {
   const [activeStack, setActiveStack] = useState<string | null>(null);
   const [activePrompt, setActivePrompt] = useState<number | null>(null);
 
+  const [emailError, setEmailError] = useState("");
   const emailRef = useRef<HTMLInputElement>(null);
 
   // Scroll reveal
@@ -78,6 +79,7 @@ export default function Home() {
           setActiveClaimBox(n);
           setModalUsername(u);
           setModalEmail("");
+          setEmailError("");
           setModalState("input");
           setModalOpen(true);
           setTimeout(() => emailRef.current?.focus(), 300);
@@ -88,9 +90,29 @@ export default function Home() {
       });
   }
 
+  function isValidEmail(email: string): boolean {
+    // Must have exactly one @, a domain with a dot, no spaces, and a real TLD
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!re.test(email)) return false;
+    // Block obvious fake/placeholder domains
+    const domain = email.split("@")[1].toLowerCase();
+    const blocked = ["example.com", "example.org", "example.net", "test.com", "test.org", "fake.com", "nobody.com", "noemail.com", "mailinator.com", "tempmail.com", "throwaway.email", "guerrillamail.com", "sharklasers.com", "yopmail.com"];
+    if (blocked.includes(domain)) return false;
+    return true;
+  }
+
   function handleReserve() {
     const e = modalEmail.trim();
-    if (!e || !e.includes("@")) {
+    setEmailError("");
+
+    if (!e) {
+      setEmailError("Email is required.");
+      emailRef.current?.focus();
+      return;
+    }
+
+    if (!isValidEmail(e)) {
+      setEmailError("Please enter a real email address.");
       emailRef.current?.focus();
       return;
     }
@@ -551,17 +573,26 @@ export default function Home() {
                 <p className="text-sm text-text-muted mb-7">
                   Nice pick. Drop your email to lock it in.
                 </p>
-                <div className="flex items-center bg-bg border border-border rounded-[14px] p-1.5 transition-all focus-within:border-accent focus-within:shadow-[0_0_0_4px_var(--color-accent-glow)] mb-3">
+                <div className={`flex items-center bg-bg border rounded-[14px] p-1.5 transition-all focus-within:shadow-[0_0_0_4px_var(--color-accent-glow)] mb-1 ${emailError ? "border-red-400 focus-within:border-red-400" : "border-border focus-within:border-accent"}`}>
                   <input
                     ref={emailRef}
                     type="email"
                     className="flex-1 font-mono text-sm text-text bg-transparent border-none outline-none py-3.5 px-4 font-medium placeholder:text-text-muted placeholder:opacity-50"
                     placeholder="your@email.com"
                     value={modalEmail}
-                    onChange={(e) => setModalEmail(e.target.value)}
+                    onChange={(e) => {
+                      setModalEmail(e.target.value);
+                      if (emailError) setEmailError("");
+                    }}
                     onKeyDown={(e) => e.key === "Enter" && handleReserve()}
                   />
                 </div>
+                {emailError && (
+                  <p className="font-mono text-xs text-red-500 mb-2 text-left font-medium">
+                    {emailError}
+                  </p>
+                )}
+                {!emailError && <div className="mb-2" />}
                 <button
                   className="font-sans text-[0.9rem] font-semibold py-4 px-7 bg-accent text-white border-none rounded-xl cursor-pointer w-full transition-all hover:bg-accent-deep hover:shadow-[0_4px_20px_rgba(224,115,78,0.25)] disabled:opacity-60"
                   onClick={handleReserve}
