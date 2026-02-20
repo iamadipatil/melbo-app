@@ -80,10 +80,21 @@ export interface WorkflowSave {
   created_at: string;
 }
 
+export interface Resource {
+  id: string;
+  profile_id: string;
+  title: string;
+  url: string;
+  resource_type: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface ProfileData {
   profile: Profile;
   stack: StackItem[];
   prompts: Prompt[];
   impact_stats: ImpactStat[];
   workflows: Workflow[];
+  resources: Resource[];
 }

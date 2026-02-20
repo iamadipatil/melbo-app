@@ -61,8 +61,8 @@ export default async function ProfilePage({ params }: Props) {
     notFound();
   }
 
-  // Fetch stack, prompts, impact stats, workflows, and score in parallel
-  const [stackResult, promptsResult, impactResult, workflowsResult, melboScore] = await Promise.all([
+  // Fetch stack, prompts, impact stats, workflows, resources, and score in parallel
+  const [stackResult, promptsResult, impactResult, workflowsResult, resourcesResult, melboScore] = await Promise.all([
     supabase
       .from("stack_items")
       .select("*")
@@ -80,6 +80,11 @@ export default async function ProfilePage({ params }: Props) {
       .order("sort_order", { ascending: true }),
     supabase
       .from("workflows")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("resources")
       .select("*")
       .eq("profile_id", profile.id)
       .order("sort_order", { ascending: true }),
@@ -111,6 +116,7 @@ export default async function ProfilePage({ params }: Props) {
       prompts={promptsResult.data || []}
       impactStats={impactResult.data || []}
       workflows={workflowsResult.data || []}
+      resources={resourcesResult.data || []}
       melboScore={melboScore}
       isOwnProfile={isOwnProfile}
     />

@@ -19,8 +19,8 @@ export async function GET(
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  // Fetch stack items, prompts, impact stats, and workflows in parallel
-  const [stackResult, promptsResult, impactResult, workflowsResult] = await Promise.all([
+  // Fetch stack items, prompts, impact stats, workflows, and resources in parallel
+  const [stackResult, promptsResult, impactResult, workflowsResult, resourcesResult] = await Promise.all([
     supabase
       .from("stack_items")
       .select("*")
@@ -41,6 +41,11 @@ export async function GET(
       .select("*")
       .eq("profile_id", profile.id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("resources")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   // Calculate or retrieve cached Melbo Score
@@ -58,6 +63,7 @@ export async function GET(
     prompts: promptsResult.data || [],
     impact_stats: impactResult.data || [],
     workflows: workflowsResult.data || [],
+    resources: resourcesResult.data || [],
     melboScore,
   });
 }

@@ -42,6 +42,13 @@ interface WorkflowItem {
   steps: WorkflowStepItem[];
 }
 
+interface ResourceItem {
+  id?: string;
+  title: string;
+  url: string;
+  resource_type: string;
+}
+
 interface Profile {
   id: string;
   username: string;
@@ -97,6 +104,13 @@ export default function EditPage() {
     { tool: "", action: "" },
   ]);
 
+  // Resources
+  const [resources, setResources] = useState<ResourceItem[]>([]);
+  const [showAddResource, setShowAddResource] = useState(false);
+  const [newResourceTitle, setNewResourceTitle] = useState("");
+  const [newResourceUrl, setNewResourceUrl] = useState("");
+  const [newResourceType, setNewResourceType] = useState("article");
+
   // Onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -104,7 +118,7 @@ export default function EditPage() {
   const [melboScore, setMelboScore] = useState<MelboScoreResult | null>(null);
 
   // Active section tab
-  const [activeTab, setActiveTab] = useState<"profile" | "stack" | "impact" | "workflows" | "prompts">(
+  const [activeTab, setActiveTab] = useState<"profile" | "stack" | "impact" | "workflows" | "prompts" | "resources">(
     "profile"
   );
 
@@ -170,6 +184,16 @@ export default function EditPage() {
               title: w.title,
               description: w.description || "",
               steps: w.steps || [],
+            })
+          )
+        );
+        setResources(
+          (data.resources || []).map(
+            (r: ResourceItem & { id: string }) => ({
+              id: r.id,
+              title: r.title,
+              url: r.url,
+              resource_type: r.resource_type || "article",
             })
           )
         );
@@ -276,6 +300,20 @@ export default function EditPage() {
       const workflowsData = await workflowsRes.json();
       if (workflowsData.error) {
         setSaveMsg(`Workflows error: ${workflowsData.error}`);
+        setSaving(false);
+        return;
+      }
+
+      // 6. Save resources
+      const resourcesRes = await fetch("/api/me/resources", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: resources }),
+      });
+
+      const resourcesData = await resourcesRes.json();
+      if (resourcesData.error) {
+        setSaveMsg(`Resources error: ${resourcesData.error}`);
         setSaving(false);
         return;
       }
@@ -512,6 +550,38 @@ export default function EditPage() {
     );
   }
 
+  // Resource helpers
+  const RESOURCE_TYPES = ["article", "video", "podcast", "guide", "tool", "book", "newsletter", "course"];
+
+  function addResource() {
+    if (!newResourceTitle.trim() || !newResourceUrl.trim()) return;
+    if (resources.length >= 12) return;
+    setResources((prev) => [
+      ...prev,
+      {
+        title: newResourceTitle.trim(),
+        url: newResourceUrl.trim(),
+        resource_type: newResourceType,
+      },
+    ]);
+    setNewResourceTitle("");
+    setNewResourceUrl("");
+    setNewResourceType("article");
+    setShowAddResource(false);
+  }
+
+  function removeResource(index: number) {
+    setResources((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function moveResource(index: number, direction: "up" | "down") {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= resources.length) return;
+    const newRes = [...resources];
+    [newRes[index], newRes[newIndex]] = [newRes[newIndex], newRes[index]];
+    setResources(newRes);
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
@@ -714,11 +784,11 @@ export default function EditPage() {
         )}
 
         {/* Section tabs */}
-        <div className="flex gap-1 mb-6 bg-surface border border-border rounded-xl p-1">
-          {(["profile", "stack", "impact", "workflows", "prompts"] as const).map((tab) => (
+        <div className="flex gap-1 mb-6 bg-surface border border-border rounded-xl p-1 overflow-x-auto">
+          {(["profile", "stack", "impact", "workflows", "prompts", "resources"] as const).map((tab) => (
             <button
               key={tab}
-              className={`flex-1 py-2 px-2 rounded-lg font-mono text-[0.65rem] font-medium transition-all ${
+              className={`flex-1 py-2 px-2 rounded-lg font-mono text-[0.65rem] font-medium transition-all whitespace-nowrap ${
                 activeTab === tab
                   ? "bg-accent text-white shadow-sm"
                   : "text-text-muted hover:text-text"
@@ -733,7 +803,9 @@ export default function EditPage() {
                 ? `Impact (${impactStats.length})`
                 : tab === "workflows"
                 ? `Workflows (${workflows.length})`
-                : `Prompts (${prompts.length})`}
+                : tab === "prompts"
+                ? `Prompts (${prompts.length})`
+                : `Resources (${resources.length})`}
             </button>
           ))}
         </div>
@@ -1554,6 +1626,173 @@ export default function EditPage() {
                       setNewPromptTitle("");
                       setNewPromptText("");
                       setNewPromptCategory("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* RESOURCES TAB */}
+        {activeTab === "resources" && (
+          <div className="animate-[fadeInUp_0.2s_ease]">
+            {resources.length === 0 && !showAddResource ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-text-muted mb-4">
+                  No resources yet. Share links to your best content.
+                </p>
+                <button
+                  className="font-sans text-sm font-semibold py-2.5 px-5 bg-accent text-white rounded-xl transition-all hover:bg-accent-deep"
+                  onClick={() => setShowAddResource(true)}
+                >
+                  + Add your first resource
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 mb-4">
+                  {resources.map((resource, i) => (
+                    <div
+                      key={i}
+                      className="bg-surface border border-border rounded-xl py-3 px-4 flex items-center gap-3"
+                    >
+                      {/* Reorder */}
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          className="text-text-muted hover:text-accent text-[0.6rem] leading-none disabled:opacity-20"
+                          onClick={() => moveResource(i, "up")}
+                          disabled={i === 0}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          className="text-text-muted hover:text-accent text-[0.6rem] leading-none disabled:opacity-20"
+                          onClick={() => moveResource(i, "down")}
+                          disabled={i === resources.length - 1}
+                        >
+                          ▼
+                        </button>
+                      </div>
+
+                      {/* Resource info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="font-mono text-[0.55rem] font-semibold uppercase px-2 py-0.5 rounded"
+                            style={{
+                              letterSpacing: "0.5px",
+                              background:
+                                resource.resource_type === "video" ? "#fef2f2" :
+                                resource.resource_type === "podcast" ? "#faf5ff" :
+                                resource.resource_type === "article" || resource.resource_type === "guide" ? "#f0fdf4" :
+                                resource.resource_type === "tool" || resource.resource_type === "course" ? "#eff6ff" :
+                                resource.resource_type === "book" ? "#fefce8" :
+                                resource.resource_type === "newsletter" ? "#fdf0eb" : "#f5f0eb",
+                              color:
+                                resource.resource_type === "video" ? "#dc2626" :
+                                resource.resource_type === "podcast" ? "#9333ea" :
+                                resource.resource_type === "article" || resource.resource_type === "guide" ? "#16a34a" :
+                                resource.resource_type === "tool" || resource.resource_type === "course" ? "#2563eb" :
+                                resource.resource_type === "book" ? "#ca8a04" :
+                                resource.resource_type === "newsletter" ? "#e0734e" : "#5c524a",
+                            }}
+                          >
+                            {resource.resource_type}
+                          </span>
+                          <span className="font-mono text-sm font-medium truncate">
+                            {resource.title}
+                          </span>
+                        </div>
+                        <p className="text-[0.6rem] text-text-muted mt-0.5 truncate">
+                          {resource.url}
+                        </p>
+                      </div>
+
+                      {/* Remove */}
+                      <button
+                        className="text-text-muted hover:text-accent-deep text-sm transition-colors"
+                        onClick={() => removeResource(i)}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {!showAddResource && resources.length < 12 && (
+                  <button
+                    className="w-full py-3 bg-surface border border-dashed border-border rounded-xl font-mono text-[0.75rem] text-text-muted hover:border-accent hover:text-accent transition-all"
+                    onClick={() => setShowAddResource(true)}
+                  >
+                    + Add resource ({12 - resources.length} remaining)
+                  </button>
+                )}
+                {resources.length >= 12 && (
+                  <p className="text-center font-mono text-[0.65rem] text-text-muted mt-2">
+                    Maximum 12 resources reached
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* Add resource form */}
+            {showAddResource && (
+              <div className="bg-surface border border-accent/20 rounded-xl p-4 mt-3 animate-[fadeInUp_0.2s_ease]">
+                <input
+                  type="text"
+                  className="w-full text-sm font-medium text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none mb-2 focus:border-accent"
+                  placeholder="Resource title"
+                  value={newResourceTitle}
+                  onChange={(e) => setNewResourceTitle(e.target.value)}
+                  autoFocus
+                />
+                <input
+                  type="url"
+                  className="w-full text-xs text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none mb-2 focus:border-accent"
+                  placeholder="https://..."
+                  value={newResourceUrl}
+                  onChange={(e) => setNewResourceUrl(e.target.value)}
+                />
+                <div className="mb-3">
+                  <label className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-text-muted mb-1.5 block">
+                    Type
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RESOURCE_TYPES.map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        className={`font-mono text-[0.6rem] py-1 px-2.5 rounded-lg border transition-all capitalize ${
+                          newResourceType === type
+                            ? "border-accent text-accent bg-accent-light"
+                            : "border-border text-text-muted hover:border-accent hover:text-accent"
+                        }`}
+                        onClick={() => setNewResourceType(type)}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="font-sans text-xs font-semibold py-2 px-4 bg-accent text-white rounded-lg transition-all hover:bg-accent-deep disabled:opacity-50"
+                    onClick={addResource}
+                    disabled={!newResourceTitle.trim() || !newResourceUrl.trim()}
+                  >
+                    Add
+                  </button>
+                  <button
+                    className="font-sans text-xs py-2 px-4 text-text-muted hover:text-text transition-colors"
+                    onClick={() => {
+                      setShowAddResource(false);
+                      setNewResourceTitle("");
+                      setNewResourceUrl("");
+                      setNewResourceType("article");
                     }}
                   >
                     Cancel

@@ -30,8 +30,8 @@ export async function GET() {
     });
   }
 
-  // Fetch stack, prompts, impact stats, and workflows
-  const [stackResult, promptsResult, impactResult, workflowsResult] = await Promise.all([
+  // Fetch stack, prompts, impact stats, workflows, and resources
+  const [stackResult, promptsResult, impactResult, workflowsResult, resourcesResult] = await Promise.all([
     supabase
       .from("stack_items")
       .select("*")
@@ -52,6 +52,11 @@ export async function GET() {
       .select("*")
       .eq("profile_id", profile.id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("resources")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   // Calculate Melbo Score
@@ -69,6 +74,7 @@ export async function GET() {
     prompts: promptsResult.data || [],
     impact_stats: impactResult.data || [],
     workflows: workflowsResult.data || [],
+    resources: resourcesResult.data || [],
     email: user.email,
     needsProfile: false,
     melboScore,

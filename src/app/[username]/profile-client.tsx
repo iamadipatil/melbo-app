@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Profile, StackItem, Prompt, ImpactStat, Workflow } from "@/lib/types";
+import type { Profile, StackItem, Prompt, ImpactStat, Workflow, Resource } from "@/lib/types";
 import type { MelboScoreResult } from "@/lib/calculateMelboScore";
 
 interface Props {
@@ -10,8 +10,29 @@ interface Props {
   prompts: Prompt[];
   impactStats: ImpactStat[];
   workflows: Workflow[];
+  resources: Resource[];
   melboScore: MelboScoreResult;
   isOwnProfile?: boolean;
+}
+
+const RESOURCE_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  video: { bg: "#fef2f2", text: "#dc2626" },
+  podcast: { bg: "#faf5ff", text: "#9333ea" },
+  article: { bg: "#f0fdf4", text: "#16a34a" },
+  guide: { bg: "#f0fdf4", text: "#16a34a" },
+  tool: { bg: "#eff6ff", text: "#2563eb" },
+  book: { bg: "#fefce8", text: "#ca8a04" },
+  newsletter: { bg: "#fdf0eb", text: "#e0734e" },
+  course: { bg: "#eff6ff", text: "#2563eb" },
+};
+
+function getResourceSource(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.replace("www.", "");
+    return hostname;
+  } catch {
+    return "";
+  }
 }
 
 export default function ProfileClient({
@@ -20,6 +41,7 @@ export default function ProfileClient({
   prompts,
   impactStats,
   workflows,
+  resources,
   melboScore,
   isOwnProfile = false,
 }: Props) {
@@ -585,6 +607,91 @@ export default function ProfileClient({
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Resources Card — full width */}
+          {resources.length > 0 && (
+            <div
+              className="col-span-1 sm:col-span-2"
+              style={{
+                background: "#ffffff",
+                padding: "24px 28px",
+                animation: "fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both",
+              }}
+            >
+              <div className="flex justify-between items-center mb-3.5">
+                <div
+                  className="font-mono text-[10px] font-medium uppercase"
+                  style={{ letterSpacing: "1.6px", color: "#9a8f86" }}
+                >
+                  Resources
+                </div>
+                <span className="font-mono text-[10px]" style={{ color: "#9a8f86" }}>
+                  {resources.length} total
+                </span>
+              </div>
+              <div className="flex flex-col">
+                {resources.map((resource, i) => {
+                  const typeColors = RESOURCE_TYPE_COLORS[resource.resource_type.toLowerCase()] || { bg: "#f5f0eb", text: "#5c524a" };
+                  const source = getResourceSource(resource.url);
+                  return (
+                    <a
+                      key={resource.id}
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center no-underline transition-opacity"
+                      style={{
+                        gap: "12px",
+                        padding: "11px 0",
+                        borderBottom: i < resources.length - 1 ? "1px solid #f0ebe5" : "none",
+                        opacity: 1,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.65")}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                    >
+                      <span
+                        className="font-mono text-[9px] font-semibold uppercase shrink-0"
+                        style={{
+                          letterSpacing: "0.5px",
+                          padding: "3px 8px",
+                          borderRadius: "5px",
+                          background: typeColors.bg,
+                          color: typeColors.text,
+                        }}
+                      >
+                        {resource.resource_type}
+                      </span>
+                      <span
+                        className="text-[13.5px] font-medium flex-1 min-w-0"
+                        style={{
+                          color: "#1c1410",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {resource.title}
+                      </span>
+                      {source && (
+                        <span
+                          className="text-[11px] shrink-0 hidden sm:inline"
+                          style={{ color: "#9a8f86" }}
+                        >
+                          {source}
+                        </span>
+                      )}
+                      <span
+                        className="text-[14px] shrink-0"
+                        style={{ color: "#9a8f86" }}
+                      >
+                        ↗
+                      </span>
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}
