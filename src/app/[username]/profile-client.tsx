@@ -33,7 +33,6 @@ export default function ProfileClient({
   const [savedWorkflows, setSavedWorkflows] = useState<Set<string>>(new Set());
   const [savingPrompt, setSavingPrompt] = useState<string | null>(null);
   const [savingWorkflow, setSavingWorkflow] = useState<string | null>(null);
-  const [showScoreTooltip, setShowScoreTooltip] = useState(false);
 
   const initial = (profile.display_name || profile.username || "?")
     .charAt(0)
@@ -94,13 +93,6 @@ export default function ProfileClient({
     }
   }
 
-  const pillarData = [
-    { name: "Profile", score: melboScore.pillars.profile.score, max: melboScore.pillars.profile.max },
-    { name: "Content", score: melboScore.pillars.content.score, max: melboScore.pillars.content.max },
-    { name: "Stack & Impact", score: melboScore.pillars.stackImpact.score, max: melboScore.pillars.stackImpact.max },
-    { name: "Engagement", score: melboScore.pillars.engagement.score, max: melboScore.pillars.engagement.max },
-  ];
-
   return (
     <div className="min-h-screen" style={{ background: "#f6f3ef" }}>
       {/* Top nav */}
@@ -108,13 +100,24 @@ export default function ProfileClient({
         <a href="/" className="text-lg font-bold tracking-tight" style={{ color: "#1c1410" }}>
           melbo<span style={{ color: "#e0734e" }}>.</span>
         </a>
-        <a
-          href="/saved"
-          className="font-mono text-[0.75rem] font-medium transition-colors hover:opacity-80"
-          style={{ color: "#9a8f86" }}
-        >
-          My saves
-        </a>
+        <div className="flex items-center gap-4">
+          {isOwnProfile && (
+            <a
+              href="/edit"
+              className="font-mono text-[0.75rem] font-medium transition-colors hover:opacity-80"
+              style={{ color: "#9a8f86" }}
+            >
+              Edit profile
+            </a>
+          )}
+          <a
+            href="/saved"
+            className="font-mono text-[0.75rem] font-medium transition-colors hover:opacity-80"
+            style={{ color: "#9a8f86" }}
+          >
+            My saves
+          </a>
+        </div>
       </nav>
 
       {/* Profile Page Container */}
@@ -136,40 +139,6 @@ export default function ProfileClient({
               borderRadius: "16px 16px 0 0",
             }}
           />
-
-          {/* Edit Profile button — own profile only */}
-          {isOwnProfile && (
-            <a
-              href="/edit"
-              className="absolute top-4 right-4 z-10 inline-flex items-center gap-[5px] no-underline"
-              style={{
-                padding: "6px 14px",
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                borderRadius: "8px",
-                color: "rgba(255, 255, 255, 0.6)",
-                fontSize: "12px",
-                fontWeight: 500,
-                transition: "all 0.15s",
-                fontFamily: "var(--font-sans)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.12)";
-                e.currentTarget.style.color = "rgba(255, 255, 255, 0.85)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-                e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z"/>
-              </svg>
-              Edit
-            </a>
-          )}
 
           <div
             className="relative flex flex-col sm:flex-row justify-between items-center sm:items-start gap-5"
@@ -215,11 +184,7 @@ export default function ProfileClient({
             </div>
 
             {/* Right: Score Badge */}
-            <div
-              className="flex flex-col items-center gap-1 shrink-0 relative cursor-default"
-              onMouseEnter={() => setShowScoreTooltip(true)}
-              onMouseLeave={() => setShowScoreTooltip(false)}
-            >
+            <div className="flex flex-col items-center gap-1 shrink-0">
               <div className="relative w-[70px] h-[70px]">
                 <svg
                   viewBox="0 0 70 70"
@@ -252,77 +217,6 @@ export default function ProfileClient({
                 style={{ letterSpacing: "1px", color: "#e0734e" }}
               >
                 {melboScore.label}
-              </div>
-
-              {/* Hover Tooltip */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 12px)",
-                  right: "-12px",
-                  width: "224px",
-                  background: "#ffffff",
-                  border: "1px solid #e8e2db",
-                  borderRadius: "12px",
-                  padding: "16px 16px 12px",
-                  boxShadow: "0 10px 36px rgba(28, 20, 16, 0.14), 0 2px 6px rgba(28, 20, 16, 0.05)",
-                  opacity: showScoreTooltip ? 1 : 0,
-                  transform: showScoreTooltip ? "translateY(0)" : "translateY(-4px)",
-                  pointerEvents: showScoreTooltip ? "auto" as const : "none" as const,
-                  transition: "all 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
-                  zIndex: 20,
-                }}
-              >
-                {/* Arrow */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "-6px",
-                    right: "28px",
-                    width: "10px",
-                    height: "10px",
-                    background: "#fff",
-                    borderTop: "1px solid #e8e2db",
-                    borderLeft: "1px solid #e8e2db",
-                    transform: "rotate(45deg)",
-                  }}
-                />
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-                    fontSize: "9px",
-                    fontWeight: 500,
-                    textTransform: "uppercase",
-                    letterSpacing: "1.4px",
-                    color: "#9a8f86",
-                    marginBottom: "12px",
-                  }}
-                >
-                  Score Breakdown
-                </div>
-                {pillarData.map((pillar) => (
-                  <div key={pillar.name} style={{ marginBottom: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                      <span style={{ fontSize: "12px", fontWeight: 500, color: "#5c524a" }}>
-                        {pillar.name}
-                      </span>
-                      <span style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: "11px", fontWeight: 600, color: "#1c1410" }}>
-                        {pillar.score}/{pillar.max}
-                      </span>
-                    </div>
-                    <div style={{ height: "4px", borderRadius: "2px", background: "#f5f0eb", overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%",
-                          borderRadius: "2px",
-                          background: "#e0734e",
-                          width: `${(pillar.score / pillar.max) * 100}%`,
-                          transition: "width 0.8s cubic-bezier(0.22, 1, 0.36, 1)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
