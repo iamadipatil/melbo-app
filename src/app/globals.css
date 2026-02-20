@@ -1,20 +1,26 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: #faf9f7;
-  --color-surface: #ffffff;
+  --color-bg: #f6f3ef;
+  --color-surface: #f5f0eb;
   --color-card: #ffffff;
   --color-card-alt: #fef6f0;
   --color-accent: #e0734e;
   --color-accent-warm: #ed8f6a;
-  --color-accent-deep: #c9573a;
-  --color-accent-light: #fdf0ea;
+  --color-accent-deep: #d4623d;
+  --color-accent-light: #fdf0eb;
   --color-accent-glow: rgba(224, 115, 78, 0.12);
   --color-text: #1c1410;
-  --color-text-secondary: #5a504a;
-  --color-text-muted: #a09590;
-  --color-border: #ebe6e1;
+  --color-text-secondary: #5c524a;
+  --color-text-muted: #9a8f86;
+  --color-border: #e8e2db;
+  --color-border-light: #f0ebe5;
   --color-border-hover: #ddd6ce;
+  --color-hero-bg: #1c1410;
+  --color-hero-surface: rgba(255,255,255,0.06);
+  --color-hero-border: rgba(255,255,255,0.08);
+  --color-hero-text: rgba(255,255,255,0.92);
+  --color-hero-muted: rgba(255,255,255,0.45);
 
   --font-sans: "DM Sans", -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
@@ -30,6 +36,11 @@ body {
 
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

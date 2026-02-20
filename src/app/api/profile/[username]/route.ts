@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getOrCalculateMelboScore } from "@/lib/calculateMelboScore";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -42,11 +43,21 @@ export async function GET(
       .order("sort_order", { ascending: true }),
   ]);
 
+  // Calculate or retrieve cached Melbo Score
+  const melboScore = await getOrCalculateMelboScore(
+    supabase,
+    profile.id,
+    profile.melbo_score,
+    profile.melbo_score_label,
+    profile.melbo_score_updated_at
+  );
+
   return NextResponse.json({
     profile,
     stack: stackResult.data || [],
     prompts: promptsResult.data || [],
     impact_stats: impactResult.data || [],
     workflows: workflowsResult.data || [],
+    melboScore,
   });
 }

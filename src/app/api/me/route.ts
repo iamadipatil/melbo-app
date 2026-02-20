@@ -1,4 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase-server";
+import { getOrCalculateMelboScore } from "@/lib/calculateMelboScore";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/me — get current user's profile
@@ -53,6 +54,15 @@ export async function GET() {
       .order("sort_order", { ascending: true }),
   ]);
 
+  // Calculate Melbo Score
+  const melboScore = await getOrCalculateMelboScore(
+    supabase,
+    profile.id,
+    profile.melbo_score,
+    profile.melbo_score_label,
+    profile.melbo_score_updated_at
+  );
+
   return NextResponse.json({
     profile,
     stack: stackResult.data || [],
@@ -61,6 +71,7 @@ export async function GET() {
     workflows: workflowsResult.data || [],
     email: user.email,
     needsProfile: false,
+    melboScore,
   });
 }
 

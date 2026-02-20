@@ -7,6 +7,9 @@ export interface Profile {
   bio: string | null;
   avatar_url: string | null;
   onboarding_completed: boolean;
+  melbo_score: number;
+  melbo_score_label: string;
+  melbo_score_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }

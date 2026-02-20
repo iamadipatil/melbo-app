@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { getToolIcon, KNOWN_TOOLS } from "@/lib/tool-icons";
+import type { MelboScoreResult } from "@/lib/calculateMelboScore";
 import Onboarding from "./onboarding";
 
 interface StackItem {
@@ -99,6 +100,9 @@ export default function EditPage() {
   // Onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // Melbo Score
+  const [melboScore, setMelboScore] = useState<MelboScoreResult | null>(null);
+
   // Active section tab
   const [activeTab, setActiveTab] = useState<"profile" | "stack" | "impact" | "workflows" | "prompts">(
     "profile"
@@ -169,6 +173,9 @@ export default function EditPage() {
             })
           )
         );
+        if (data.melboScore) {
+          setMelboScore(data.melboScore);
+        }
       }
     } catch {
       // fail silently
@@ -271,6 +278,17 @@ export default function EditPage() {
         setSaveMsg(`Workflows error: ${workflowsData.error}`);
         setSaving(false);
         return;
+      }
+
+      // Recalculate Melbo Score after save
+      try {
+        const scoreRes = await fetch("/api/me/score", { method: "POST" });
+        const scoreData = await scoreRes.json();
+        if (scoreData.melboScore) {
+          setMelboScore(scoreData.melboScore);
+        }
+      } catch {
+        // Score calc failed, not critical
       }
 
       setSaveMsg("Saved!");
@@ -584,6 +602,114 @@ export default function EditPage() {
             }`}
           >
             {saveMsg}
+          </div>
+        )}
+
+        {/* Melbo Score Card */}
+        {melboScore && !needsProfile && (
+          <div className="mb-6 bg-surface border border-border rounded-xl p-5 animate-[fadeInUp_0.2s_ease]">
+            <div className="flex items-start gap-5">
+              {/* Score Ring */}
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <div className="relative w-[60px] h-[60px]">
+                  <svg
+                    viewBox="0 0 70 70"
+                    width="60"
+                    height="60"
+                    style={{ transform: "rotate(-90deg)" }}
+                  >
+                    <circle cx="35" cy="35" r="30" fill="none" stroke="var(--color-border)" strokeWidth="5" />
+                    <circle
+                      cx="35" cy="35" r="30"
+                      fill="none" stroke="var(--color-accent)" strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 30}
+                      strokeDashoffset={2 * Math.PI * 30 * (1 - melboScore.total / 100)}
+                      style={{
+                        filter: "drop-shadow(0 0 4px rgba(224, 115, 78, 0.3))",
+                        transition: "stroke-dashoffset 1s cubic-bezier(0.22, 1, 0.36, 1)",
+                      }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center font-mono text-[17px] font-bold text-text">
+                    {melboScore.total}
+                  </div>
+                </div>
+                <span className="font-mono text-[9px] font-semibold uppercase text-accent" style={{ letterSpacing: "0.8px" }}>
+                  {melboScore.label}
+                </span>
+              </div>
+
+              {/* Pillar Breakdown */}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-text-muted mb-3">
+                  Your Melbo Score
+                </h3>
+                <div className="space-y-2.5">
+                  {[
+                    { name: "Profile", ...melboScore.pillars.profile },
+                    { name: "Content", ...melboScore.pillars.content },
+                    { name: "Stack & Impact", ...melboScore.pillars.stackImpact },
+                    { name: "Engagement", ...melboScore.pillars.engagement },
+                  ].map((pillar) => (
+                    <div key={pillar.name}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-medium text-text-secondary">{pillar.name}</span>
+                        <span className="font-mono text-[0.65rem] font-semibold text-text">
+                          {pillar.score}/{pillar.max}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-accent rounded-full"
+                          style={{
+                            width: `${(pillar.score / pillar.max) * 100}%`,
+                            transition: "width 0.8s cubic-bezier(0.22, 1, 0.36, 1)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Improvement Suggestions */}
+                {(() => {
+                  const suggestions: { text: string; points: number }[] = [];
+                  if (!bio || !bio.trim()) suggestions.push({ text: "Add a bio", points: 4 });
+                  else if (bio.trim().length < 50) suggestions.push({ text: "Write a longer bio (50+ chars)", points: 2 });
+                  if (prompts.length === 0) suggestions.push({ text: "Add your first prompt", points: 5 });
+                  else if (prompts.length === 1) suggestions.push({ text: "Add a second prompt", points: 4 });
+                  if (workflows.length === 0) suggestions.push({ text: "Add a workflow", points: 4 });
+                  if (impactStats.length === 0) suggestions.push({ text: "Add an impact stat", points: 4 });
+                  if (stack.length < 3) suggestions.push({ text: "Add more tools to your stack", points: 3 });
+                  if (!displayName || !displayName.trim()) suggestions.push({ text: "Set your display name", points: 3 });
+                  if (!headline || !headline.trim()) suggestions.push({ text: "Add a headline", points: 3 });
+                  if (stack.length > 0 && !stack.some(s => s.is_primary)) suggestions.push({ text: "Mark a primary tool in your stack", points: 2 });
+
+                  // Sort by points desc, take top 4
+                  const top = suggestions.sort((a, b) => b.points - a.points).slice(0, 4);
+                  if (top.length === 0) return null;
+
+                  return (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-text-muted mb-2">
+                        How to improve
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {top.map((s, i) => (
+                          <span
+                            key={i}
+                            className="inline-block font-mono text-[0.6rem] py-1 px-2.5 rounded-lg bg-accent-light text-accent border border-accent/15"
+                          >
+                            {s.text} <span className="font-bold">+{s.points}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           </div>
         )}
 
