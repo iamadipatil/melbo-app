@@ -11,6 +11,7 @@ interface Props {
   impactStats: ImpactStat[];
   workflows: Workflow[];
   melboScore: MelboScoreResult;
+  isOwnProfile?: boolean;
 }
 
 export default function ProfileClient({
@@ -20,6 +21,7 @@ export default function ProfileClient({
   impactStats,
   workflows,
   melboScore,
+  isOwnProfile = false,
 }: Props) {
   const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
   const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
@@ -118,7 +120,7 @@ export default function ProfileClient({
       <div className="max-w-[760px] mx-auto pt-6 px-4 sm:px-0">
         {/* ===== HERO ===== */}
         <div
-          className="relative overflow-hidden"
+          className="relative"
           style={{
             background: "#1c1410",
             borderRadius: "16px 16px 0 0",
@@ -130,8 +132,44 @@ export default function ProfileClient({
             className="absolute inset-0 pointer-events-none"
             style={{
               background: "radial-gradient(ellipse at 80% 10%, rgba(224, 115, 78, 0.05) 0%, transparent 55%)",
+              borderRadius: "16px 16px 0 0",
             }}
           />
+
+          {/* Edit Profile button — own profile only */}
+          {isOwnProfile && (
+            <a
+              href="/edit"
+              className="absolute top-4 right-4 z-10 inline-flex items-center gap-[5px] no-underline"
+              style={{
+                padding: "6px 14px",
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: "8px",
+                color: "rgba(255, 255, 255, 0.6)",
+                fontSize: "12px",
+                fontWeight: 500,
+                transition: "all 0.15s",
+                fontFamily: "var(--font-sans)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.12)";
+                e.currentTarget.style.color = "rgba(255, 255, 255, 0.85)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z"/>
+              </svg>
+              Edit
+            </a>
+          )}
+
           <div
             className="relative flex flex-col sm:flex-row justify-between items-center sm:items-start gap-5"
             style={{ animation: "fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both" }}
@@ -330,12 +368,26 @@ export default function ProfileClient({
                         boxShadow: item.is_primary ? "0 0 0 3px #fdf0eb" : "none",
                       }}
                     />
-                    <span className="text-[13.5px] font-semibold" style={{ color: "#1c1410" }}>
+                    <span className="text-[13.5px] font-semibold" style={{ color: "#1c1410", whiteSpace: "nowrap" }}>
                       {item.tool_name}
                     </span>
                     {item.description && (
-                      <span className="text-[11.5px] ml-auto text-right" style={{ color: "#9a8f86" }}>
-                        {item.description}
+                      <span
+                        className="text-[11.5px] ml-auto text-right"
+                        style={{
+                          color: "#9a8f86",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "180px",
+                        }}
+                      >
+                        {(() => {
+                          const desc = item.description.trim();
+                          // Split on first period or comma, take the first chunk
+                          const firstChunk = desc.split(/[.,]/)?.at(0)?.trim() || desc;
+                          return firstChunk.length > 35 ? firstChunk.slice(0, 35) + "…" : firstChunk;
+                        })()}
                       </span>
                     )}
                   </div>

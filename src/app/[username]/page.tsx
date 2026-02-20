@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { createSupabaseServer } from "@/lib/supabase-server";
 import { getOrCalculateMelboScore } from "@/lib/calculateMelboScore";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -91,6 +92,18 @@ export default async function ProfilePage({ params }: Props) {
     ),
   ]);
 
+  // Check if the logged-in user is viewing their own profile
+  let isOwnProfile = false;
+  try {
+    const supabaseAuth = await createSupabaseServer();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (user) {
+      isOwnProfile = user.id === profile.user_id;
+    }
+  } catch {
+    // Not logged in or error — leave as false
+  }
+
   return (
     <ProfileClient
       profile={profile}
@@ -99,6 +112,7 @@ export default async function ProfilePage({ params }: Props) {
       impactStats={impactResult.data || []}
       workflows={workflowsResult.data || []}
       melboScore={melboScore}
+      isOwnProfile={isOwnProfile}
     />
   );
 }
