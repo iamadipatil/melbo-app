@@ -29,8 +29,8 @@ export async function GET() {
     });
   }
 
-  // Fetch stack and prompts
-  const [stackResult, promptsResult] = await Promise.all([
+  // Fetch stack, prompts, impact stats, and workflows
+  const [stackResult, promptsResult, impactResult, workflowsResult] = await Promise.all([
     supabase
       .from("stack_items")
       .select("*")
@@ -41,12 +41,24 @@ export async function GET() {
       .select("*")
       .eq("profile_id", profile.id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("impact_stats")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("workflows")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   return NextResponse.json({
     profile,
     stack: stackResult.data || [],
     prompts: promptsResult.data || [],
+    impact_stats: impactResult.data || [],
+    workflows: workflowsResult.data || [],
     email: user.email,
     needsProfile: false,
   });
@@ -65,7 +77,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { display_name, headline, bio, username } = body;
+  const { display_name, headline, bio, username, onboarding_completed } = body;
 
   // Check if profile exists
   const { data: existing } = await supabase
@@ -76,10 +88,11 @@ export async function PUT(request: NextRequest) {
 
   if (existing) {
     // Update existing
-    const updates: Record<string, string> = { updated_at: new Date().toISOString() };
+    const updates: Record<string, string | boolean> = { updated_at: new Date().toISOString() };
     if (display_name !== undefined) updates.display_name = display_name;
     if (headline !== undefined) updates.headline = headline;
     if (bio !== undefined) updates.bio = bio;
+    if (onboarding_completed !== undefined) updates.onboarding_completed = onboarding_completed;
 
     const { data, error } = await supabase
       .from("profiles")

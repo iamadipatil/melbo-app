@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { getToolIcon, KNOWN_TOOLS } from "@/lib/tool-icons";
+import Onboarding from "./onboarding";
 
 interface StackItem {
   id?: string;
@@ -18,6 +19,26 @@ interface PromptItem {
   prompt_text: string;
   description: string;
   category: string;
+}
+
+interface ImpactStatItem {
+  id?: string;
+  metric: string;
+  before_value: string;
+  after_value: string;
+  context: string;
+}
+
+interface WorkflowStepItem {
+  tool: string;
+  action: string;
+}
+
+interface WorkflowItem {
+  id?: string;
+  title: string;
+  description: string;
+  steps: WorkflowStepItem[];
 }
 
 interface Profile {
@@ -57,8 +78,29 @@ export default function EditPage() {
   const [newPromptText, setNewPromptText] = useState("");
   const [newPromptCategory, setNewPromptCategory] = useState("");
 
+  // Impact stats
+  const [impactStats, setImpactStats] = useState<ImpactStatItem[]>([]);
+  const [showAddImpact, setShowAddImpact] = useState(false);
+  const [newImpactMetric, setNewImpactMetric] = useState("");
+  const [newImpactBefore, setNewImpactBefore] = useState("");
+  const [newImpactAfter, setNewImpactAfter] = useState("");
+  const [newImpactContext, setNewImpactContext] = useState("");
+
+  // Workflows
+  const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
+  const [editingWorkflow, setEditingWorkflow] = useState<number | null>(null);
+  const [showAddWorkflow, setShowAddWorkflow] = useState(false);
+  const [newWorkflowTitle, setNewWorkflowTitle] = useState("");
+  const [newWorkflowDesc, setNewWorkflowDesc] = useState("");
+  const [newWorkflowSteps, setNewWorkflowSteps] = useState<WorkflowStepItem[]>([
+    { tool: "", action: "" },
+  ]);
+
+  // Onboarding
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   // Active section tab
-  const [activeTab, setActiveTab] = useState<"profile" | "stack" | "prompts">(
+  const [activeTab, setActiveTab] = useState<"profile" | "stack" | "impact" | "workflows" | "prompts">(
     "profile"
   );
 
@@ -76,7 +118,12 @@ export default function EditPage() {
 
       if (data.needsProfile) {
         setNeedsProfile(true);
+        setShowOnboarding(true);
       } else if (data.profile) {
+        // Show onboarding if not completed
+        if (!data.profile.onboarding_completed) {
+          setShowOnboarding(true);
+        }
         setProfileId(data.profile.id);
         setUsername(data.profile.username);
         setDisplayName(data.profile.display_name || "");
@@ -98,6 +145,27 @@ export default function EditPage() {
               prompt_text: p.prompt_text,
               description: p.description || "",
               category: p.category || "",
+            })
+          )
+        );
+        setImpactStats(
+          (data.impact_stats || []).map(
+            (s: ImpactStatItem & { id: string }) => ({
+              id: s.id,
+              metric: s.metric,
+              before_value: s.before_value || "",
+              after_value: s.after_value,
+              context: s.context || "",
+            })
+          )
+        );
+        setWorkflows(
+          (data.workflows || []).map(
+            (w: WorkflowItem & { id: string; steps: WorkflowStepItem[] }) => ({
+              id: w.id,
+              title: w.title,
+              description: w.description || "",
+              steps: w.steps || [],
             })
           )
         );
@@ -168,6 +236,39 @@ export default function EditPage() {
       const promptsData = await promptsRes.json();
       if (promptsData.error) {
         setSaveMsg(`Prompts error: ${promptsData.error}`);
+        setSaving(false);
+        return;
+      }
+
+      // 4. Save impact stats
+      const impactRes = await fetch("/api/me/impact-stats", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: impactStats }),
+      });
+
+      const impactData = await impactRes.json();
+      if (impactData.error) {
+        setSaveMsg(`Impact error: ${impactData.error}`);
+        setSaving(false);
+        return;
+      }
+
+      // 5. Save workflows
+      const workflowsRes = await fetch("/api/me/workflows", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: workflows.map((w) => ({
+            ...w,
+            steps: w.steps.map((s, i) => ({ ...s, order: i + 1 })),
+          })),
+        }),
+      });
+
+      const workflowsData = await workflowsRes.json();
+      if (workflowsData.error) {
+        setSaveMsg(`Workflows error: ${workflowsData.error}`);
         setSaving(false);
         return;
       }
@@ -268,6 +369,131 @@ export default function EditPage() {
     else if (editingPrompt === newIndex) setEditingPrompt(index);
   }
 
+  // Impact stat helpers
+  function addImpactStat() {
+    if (!newImpactMetric.trim() || !newImpactAfter.trim()) return;
+    if (impactStats.length >= 6) return;
+    setImpactStats((prev) => [
+      ...prev,
+      {
+        metric: newImpactMetric.trim(),
+        before_value: newImpactBefore.trim(),
+        after_value: newImpactAfter.trim(),
+        context: newImpactContext.trim(),
+      },
+    ]);
+    setNewImpactMetric("");
+    setNewImpactBefore("");
+    setNewImpactAfter("");
+    setNewImpactContext("");
+    setShowAddImpact(false);
+  }
+
+  function removeImpactStat(index: number) {
+    setImpactStats((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function moveImpactStat(index: number, direction: "up" | "down") {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= impactStats.length) return;
+    const newStats = [...impactStats];
+    [newStats[index], newStats[newIndex]] = [newStats[newIndex], newStats[index]];
+    setImpactStats(newStats);
+  }
+
+  // Workflow helpers
+  function addWorkflow() {
+    if (!newWorkflowTitle.trim()) return;
+    const validSteps = newWorkflowSteps.filter((s) => s.tool.trim() && s.action.trim());
+    if (validSteps.length === 0) return;
+    setWorkflows((prev) => [
+      ...prev,
+      {
+        title: newWorkflowTitle.trim(),
+        description: newWorkflowDesc.trim(),
+        steps: validSteps,
+      },
+    ]);
+    setNewWorkflowTitle("");
+    setNewWorkflowDesc("");
+    setNewWorkflowSteps([{ tool: "", action: "" }]);
+    setShowAddWorkflow(false);
+  }
+
+  function removeWorkflow(index: number) {
+    setWorkflows((prev) => prev.filter((_, i) => i !== index));
+    if (editingWorkflow === index) setEditingWorkflow(null);
+  }
+
+  function moveWorkflow(index: number, direction: "up" | "down") {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= workflows.length) return;
+    const newWf = [...workflows];
+    [newWf[index], newWf[newIndex]] = [newWf[newIndex], newWf[index]];
+    setWorkflows(newWf);
+    if (editingWorkflow === index) setEditingWorkflow(newIndex);
+    else if (editingWorkflow === newIndex) setEditingWorkflow(index);
+  }
+
+  function updateWorkflow(index: number, field: keyof WorkflowItem, value: string | WorkflowStepItem[]) {
+    setWorkflows((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
+  }
+
+  function addStepToWorkflow(workflowIndex: number) {
+    setWorkflows((prev) =>
+      prev.map((w, i) =>
+        i === workflowIndex
+          ? { ...w, steps: [...w.steps, { tool: "", action: "" }] }
+          : w
+      )
+    );
+  }
+
+  function removeStepFromWorkflow(workflowIndex: number, stepIndex: number) {
+    setWorkflows((prev) =>
+      prev.map((w, i) =>
+        i === workflowIndex
+          ? { ...w, steps: w.steps.filter((_, si) => si !== stepIndex) }
+          : w
+      )
+    );
+  }
+
+  function updateWorkflowStep(
+    workflowIndex: number,
+    stepIndex: number,
+    field: "tool" | "action",
+    value: string
+  ) {
+    setWorkflows((prev) =>
+      prev.map((w, i) =>
+        i === workflowIndex
+          ? {
+              ...w,
+              steps: w.steps.map((s, si) =>
+                si === stepIndex ? { ...s, [field]: value } : s
+              ),
+            }
+          : w
+      )
+    );
+  }
+
+  function moveWorkflowStep(workflowIndex: number, stepIndex: number, direction: "up" | "down") {
+    const newStepIndex = direction === "up" ? stepIndex - 1 : stepIndex + 1;
+    setWorkflows((prev) =>
+      prev.map((w, i) => {
+        if (i !== workflowIndex) return w;
+        if (newStepIndex < 0 || newStepIndex >= w.steps.length) return w;
+        const newSteps = [...w.steps];
+        [newSteps[stepIndex], newSteps[newStepIndex]] = [newSteps[newStepIndex], newSteps[stepIndex]];
+        return { ...w, steps: newSteps };
+      })
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
@@ -276,6 +502,33 @@ export default function EditPage() {
           <p className="text-sm text-text-muted mt-3">Loading your profile...</p>
         </div>
       </div>
+    );
+  }
+
+  if (showOnboarding) {
+    return (
+      <Onboarding
+        email={email}
+        profileId={profileId}
+        username={username}
+        existingDisplayName={displayName}
+        existingHeadline={headline}
+        existingBio={bio}
+        existingStack={stack.map((s) => ({
+          tool_name: s.tool_name,
+          description: s.description,
+          is_primary: s.is_primary,
+        }))}
+        existingPrompts={prompts.map((p) => ({
+          title: p.title,
+          prompt_text: p.prompt_text,
+          category: p.category,
+        }))}
+        onComplete={() => {
+          setShowOnboarding(false);
+          loadData();
+        }}
+      />
     );
   }
 
@@ -336,10 +589,10 @@ export default function EditPage() {
 
         {/* Section tabs */}
         <div className="flex gap-1 mb-6 bg-surface border border-border rounded-xl p-1">
-          {(["profile", "stack", "prompts"] as const).map((tab) => (
+          {(["profile", "stack", "impact", "workflows", "prompts"] as const).map((tab) => (
             <button
               key={tab}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-mono text-[0.72rem] font-medium transition-all ${
+              className={`flex-1 py-2 px-2 rounded-lg font-mono text-[0.65rem] font-medium transition-all ${
                 activeTab === tab
                   ? "bg-accent text-white shadow-sm"
                   : "text-text-muted hover:text-text"
@@ -350,6 +603,10 @@ export default function EditPage() {
                 ? "Profile"
                 : tab === "stack"
                 ? `Stack (${stack.length})`
+                : tab === "impact"
+                ? `Impact (${impactStats.length})`
+                : tab === "workflows"
+                ? `Workflows (${workflows.length})`
                 : `Prompts (${prompts.length})`}
             </button>
           ))}
@@ -585,6 +842,420 @@ export default function EditPage() {
                       setShowAddStack(false);
                       setNewTool("");
                       setNewToolDesc("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* IMPACT TAB */}
+        {activeTab === "impact" && (
+          <div className="animate-[fadeInUp_0.2s_ease]">
+            {impactStats.length === 0 && !showAddImpact ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-text-muted mb-4">
+                  No impact stats yet. Show the results of your AI usage.
+                </p>
+                <button
+                  className="font-sans text-sm font-semibold py-2.5 px-5 bg-accent text-white rounded-xl transition-all hover:bg-accent-deep"
+                  onClick={() => setShowAddImpact(true)}
+                >
+                  + Add your first impact stat
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 mb-4">
+                  {impactStats.map((stat, i) => (
+                    <div
+                      key={i}
+                      className="bg-surface border border-border rounded-xl py-3 px-4 flex items-center gap-3"
+                    >
+                      {/* Reorder */}
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          className="text-text-muted hover:text-accent text-[0.6rem] leading-none disabled:opacity-20"
+                          onClick={() => moveImpactStat(i, "up")}
+                          disabled={i === 0}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          className="text-text-muted hover:text-accent text-[0.6rem] leading-none disabled:opacity-20"
+                          onClick={() => moveImpactStat(i, "down")}
+                          disabled={i === impactStats.length - 1}
+                        >
+                          ▼
+                        </button>
+                      </div>
+
+                      {/* Stat info */}
+                      <div className="flex-1 min-w-0">
+                        <span className="font-mono text-xs font-medium">
+                          {stat.metric}
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {stat.before_value && (
+                            <>
+                              <span className="font-mono text-[0.65rem] text-text-muted line-through">
+                                {stat.before_value}
+                              </span>
+                              <span className="text-accent text-[0.65rem] font-bold">→</span>
+                            </>
+                          )}
+                          <span className="font-mono text-[0.65rem] font-semibold text-accent">
+                            {stat.after_value}
+                          </span>
+                        </div>
+                        {stat.context && (
+                          <p className="text-[0.6rem] text-text-muted mt-0.5 truncate">
+                            {stat.context}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Remove */}
+                      <button
+                        className="text-text-muted hover:text-accent-deep text-sm transition-colors"
+                        onClick={() => removeImpactStat(i)}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {!showAddImpact && impactStats.length < 6 && (
+                  <button
+                    className="w-full py-3 bg-surface border border-dashed border-border rounded-xl font-mono text-[0.75rem] text-text-muted hover:border-accent hover:text-accent transition-all"
+                    onClick={() => setShowAddImpact(true)}
+                  >
+                    + Add impact stat ({6 - impactStats.length} remaining)
+                  </button>
+                )}
+                {impactStats.length >= 6 && (
+                  <p className="text-center font-mono text-[0.65rem] text-text-muted mt-2">
+                    Maximum 6 impact stats reached
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* Add impact stat form */}
+            {showAddImpact && (
+              <div className="bg-surface border border-accent/20 rounded-xl p-4 mt-3 animate-[fadeInUp_0.2s_ease]">
+                <input
+                  type="text"
+                  className="w-full text-sm font-medium text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none mb-2 focus:border-accent"
+                  placeholder="What did you improve?"
+                  value={newImpactMetric}
+                  onChange={(e) => setNewImpactMetric(e.target.value)}
+                  autoFocus
+                />
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    className="flex-1 text-xs text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none focus:border-accent"
+                    placeholder="Before AI (optional)"
+                    value={newImpactBefore}
+                    onChange={(e) => setNewImpactBefore(e.target.value)}
+                  />
+                  <span className="text-accent font-bold flex items-center">→</span>
+                  <input
+                    type="text"
+                    className="flex-1 text-xs text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none focus:border-accent"
+                    placeholder="After AI"
+                    value={newImpactAfter}
+                    onChange={(e) => setNewImpactAfter(e.target.value)}
+                  />
+                </div>
+                <input
+                  type="text"
+                  className="w-full text-xs text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none mb-3 focus:border-accent"
+                  placeholder="How did you do it? (optional)"
+                  value={newImpactContext}
+                  onChange={(e) => setNewImpactContext(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button
+                    className="font-sans text-xs font-semibold py-2 px-4 bg-accent text-white rounded-lg transition-all hover:bg-accent-deep disabled:opacity-50"
+                    onClick={addImpactStat}
+                    disabled={!newImpactMetric.trim() || !newImpactAfter.trim()}
+                  >
+                    Add
+                  </button>
+                  <button
+                    className="font-sans text-xs py-2 px-4 text-text-muted hover:text-text transition-colors"
+                    onClick={() => {
+                      setShowAddImpact(false);
+                      setNewImpactMetric("");
+                      setNewImpactBefore("");
+                      setNewImpactAfter("");
+                      setNewImpactContext("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* WORKFLOWS TAB */}
+        {activeTab === "workflows" && (
+          <div className="animate-[fadeInUp_0.2s_ease]">
+            {workflows.length === 0 && !showAddWorkflow ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-text-muted mb-4">
+                  No workflows yet. Show how you chain AI tools together.
+                </p>
+                <button
+                  className="font-sans text-sm font-semibold py-2.5 px-5 bg-accent text-white rounded-xl transition-all hover:bg-accent-deep"
+                  onClick={() => setShowAddWorkflow(true)}
+                >
+                  + Add your first workflow
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3 mb-4">
+                  {workflows.map((workflow, i) => (
+                    <div
+                      key={i}
+                      className="bg-surface border border-border rounded-xl overflow-hidden"
+                    >
+                      {/* Workflow header */}
+                      <div className="py-3 px-4 flex items-center gap-3">
+                        {/* Reorder */}
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            className="text-text-muted hover:text-accent text-[0.6rem] leading-none disabled:opacity-20"
+                            onClick={() => moveWorkflow(i, "up")}
+                            disabled={i === 0}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            className="text-text-muted hover:text-accent text-[0.6rem] leading-none disabled:opacity-20"
+                            onClick={() => moveWorkflow(i, "down")}
+                            disabled={i === workflows.length - 1}
+                          >
+                            ▼
+                          </button>
+                        </div>
+
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() =>
+                            setEditingWorkflow(editingWorkflow === i ? null : i)
+                          }
+                        >
+                          <span className="font-medium text-sm tracking-tight">
+                            {workflow.title || "Untitled workflow"}
+                          </span>
+                          <span className="font-mono text-[0.6rem] text-text-muted ml-2">
+                            {workflow.steps.length} steps
+                          </span>
+                        </div>
+
+                        <button
+                          className="font-mono text-[0.65rem] text-text-muted hover:text-accent transition-colors"
+                          onClick={() =>
+                            setEditingWorkflow(editingWorkflow === i ? null : i)
+                          }
+                        >
+                          {editingWorkflow === i ? "Close" : "Edit"}
+                        </button>
+                        <button
+                          className="text-text-muted hover:text-accent-deep text-sm transition-colors"
+                          onClick={() => removeWorkflow(i)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Edit form */}
+                      {editingWorkflow === i && (
+                        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3 animate-[fadeInUp_0.15s_ease]">
+                          <input
+                            type="text"
+                            className="w-full text-sm font-medium text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none focus:border-accent"
+                            placeholder="Workflow title"
+                            value={workflow.title}
+                            onChange={(e) => updateWorkflow(i, "title", e.target.value)}
+                          />
+                          <textarea
+                            className="w-full text-xs text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none resize-none focus:border-accent"
+                            placeholder="Description (optional)"
+                            rows={2}
+                            value={workflow.description}
+                            onChange={(e) => updateWorkflow(i, "description", e.target.value)}
+                          />
+                          <div className="space-y-2">
+                            <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-text-muted">
+                              Steps
+                            </p>
+                            {workflow.steps.map((step, si) => (
+                              <div key={si} className="flex items-center gap-2">
+                                <div className="flex flex-col gap-0.5">
+                                  <button
+                                    className="text-text-muted hover:text-accent text-[0.5rem] leading-none disabled:opacity-20"
+                                    onClick={() => moveWorkflowStep(i, si, "up")}
+                                    disabled={si === 0}
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    className="text-text-muted hover:text-accent text-[0.5rem] leading-none disabled:opacity-20"
+                                    onClick={() => moveWorkflowStep(i, si, "down")}
+                                    disabled={si === workflow.steps.length - 1}
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+                                <span className="font-mono text-[0.6rem] text-text-muted w-4 text-center shrink-0">
+                                  {si + 1}
+                                </span>
+                                <input
+                                  type="text"
+                                  className="w-28 shrink-0 font-mono text-xs text-text bg-bg border border-border rounded-lg py-2 px-2 outline-none focus:border-accent"
+                                  placeholder="Tool"
+                                  value={step.tool}
+                                  onChange={(e) => updateWorkflowStep(i, si, "tool", e.target.value)}
+                                />
+                                <input
+                                  type="text"
+                                  className="flex-1 text-xs text-text bg-bg border border-border rounded-lg py-2 px-2 outline-none focus:border-accent"
+                                  placeholder="What this step does"
+                                  value={step.action}
+                                  onChange={(e) => updateWorkflowStep(i, si, "action", e.target.value)}
+                                />
+                                <button
+                                  className="text-text-muted hover:text-accent-deep text-xs transition-colors shrink-0"
+                                  onClick={() => removeStepFromWorkflow(i, si)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              className="font-mono text-[0.65rem] text-accent hover:text-accent-deep transition-colors"
+                              onClick={() => addStepToWorkflow(i)}
+                            >
+                              + Add step
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {!showAddWorkflow && (
+                  <button
+                    className="w-full py-3 bg-surface border border-dashed border-border rounded-xl font-mono text-[0.75rem] text-text-muted hover:border-accent hover:text-accent transition-all"
+                    onClick={() => setShowAddWorkflow(true)}
+                  >
+                    + Add workflow
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Add workflow form */}
+            {showAddWorkflow && (
+              <div className="bg-surface border border-accent/20 rounded-xl p-4 mt-3 animate-[fadeInUp_0.2s_ease]">
+                <input
+                  type="text"
+                  className="w-full text-sm font-medium text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none mb-2 focus:border-accent"
+                  placeholder="Workflow title"
+                  value={newWorkflowTitle}
+                  onChange={(e) => setNewWorkflowTitle(e.target.value)}
+                  autoFocus
+                />
+                <textarea
+                  className="w-full text-xs text-text bg-bg border border-border rounded-lg py-2.5 px-3 outline-none mb-3 resize-none focus:border-accent"
+                  placeholder="Description (optional)"
+                  rows={2}
+                  value={newWorkflowDesc}
+                  onChange={(e) => setNewWorkflowDesc(e.target.value)}
+                />
+                <div className="space-y-2 mb-3">
+                  <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-text-muted">
+                    Steps
+                  </p>
+                  {newWorkflowSteps.map((step, si) => (
+                    <div key={si} className="flex items-center gap-2">
+                      <span className="font-mono text-[0.6rem] text-text-muted w-4 text-center shrink-0">
+                        {si + 1}
+                      </span>
+                      <input
+                        type="text"
+                        className="w-28 shrink-0 font-mono text-xs text-text bg-bg border border-border rounded-lg py-2 px-2 outline-none focus:border-accent"
+                        placeholder="Tool"
+                        value={step.tool}
+                        onChange={(e) => {
+                          const updated = [...newWorkflowSteps];
+                          updated[si] = { ...updated[si], tool: e.target.value };
+                          setNewWorkflowSteps(updated);
+                        }}
+                      />
+                      <input
+                        type="text"
+                        className="flex-1 text-xs text-text bg-bg border border-border rounded-lg py-2 px-2 outline-none focus:border-accent"
+                        placeholder="What this step does"
+                        value={step.action}
+                        onChange={(e) => {
+                          const updated = [...newWorkflowSteps];
+                          updated[si] = { ...updated[si], action: e.target.value };
+                          setNewWorkflowSteps(updated);
+                        }}
+                      />
+                      {newWorkflowSteps.length > 1 && (
+                        <button
+                          className="text-text-muted hover:text-accent-deep text-xs transition-colors shrink-0"
+                          onClick={() =>
+                            setNewWorkflowSteps((prev) => prev.filter((_, i) => i !== si))
+                          }
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    className="font-mono text-[0.65rem] text-accent hover:text-accent-deep transition-colors"
+                    onClick={() =>
+                      setNewWorkflowSteps((prev) => [...prev, { tool: "", action: "" }])
+                    }
+                  >
+                    + Add step
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="font-sans text-xs font-semibold py-2 px-4 bg-accent text-white rounded-lg transition-all hover:bg-accent-deep disabled:opacity-50"
+                    onClick={addWorkflow}
+                    disabled={
+                      !newWorkflowTitle.trim() ||
+                      !newWorkflowSteps.some((s) => s.tool.trim() && s.action.trim())
+                    }
+                  >
+                    Add workflow
+                  </button>
+                  <button
+                    className="font-sans text-xs py-2 px-4 text-text-muted hover:text-text transition-colors"
+                    onClick={() => {
+                      setShowAddWorkflow(false);
+                      setNewWorkflowTitle("");
+                      setNewWorkflowDesc("");
+                      setNewWorkflowSteps([{ tool: "", action: "" }]);
                     }}
                   >
                     Cancel

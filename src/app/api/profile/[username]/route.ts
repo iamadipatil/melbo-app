@@ -18,23 +18,35 @@ export async function GET(
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  // Fetch stack items
-  const { data: stack } = await supabase
-    .from("stack_items")
-    .select("*")
-    .eq("profile_id", profile.id)
-    .order("sort_order", { ascending: true });
-
-  // Fetch prompts
-  const { data: prompts } = await supabase
-    .from("prompts")
-    .select("*")
-    .eq("profile_id", profile.id)
-    .order("sort_order", { ascending: true });
+  // Fetch stack items, prompts, impact stats, and workflows in parallel
+  const [stackResult, promptsResult, impactResult, workflowsResult] = await Promise.all([
+    supabase
+      .from("stack_items")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("prompts")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("impact_stats")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("workflows")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   return NextResponse.json({
     profile,
-    stack: stack || [],
-    prompts: prompts || [],
+    stack: stackResult.data || [],
+    prompts: promptsResult.data || [],
+    impact_stats: impactResult.data || [],
+    workflows: workflowsResult.data || [],
   });
 }

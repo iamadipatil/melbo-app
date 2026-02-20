@@ -46,8 +46,8 @@ export default async function ProfilePage({ params }: Props) {
     notFound();
   }
 
-  // Fetch stack and prompts in parallel
-  const [stackResult, promptsResult] = await Promise.all([
+  // Fetch stack, prompts, impact stats, and workflows in parallel
+  const [stackResult, promptsResult, impactResult, workflowsResult] = await Promise.all([
     supabase
       .from("stack_items")
       .select("*")
@@ -58,6 +58,16 @@ export default async function ProfilePage({ params }: Props) {
       .select("*")
       .eq("profile_id", profile.id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("impact_stats")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("workflows")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   return (
@@ -65,6 +75,8 @@ export default async function ProfilePage({ params }: Props) {
       profile={profile}
       stack={stackResult.data || []}
       prompts={promptsResult.data || []}
+      impactStats={impactResult.data || []}
+      workflows={workflowsResult.data || []}
     />
   );
 }
