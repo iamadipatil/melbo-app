@@ -97,8 +97,8 @@ export default async function ProfilePage({ params }: Props) {
   try {
     const supabaseAuth = await createSupabaseServer();
     const { data: { user } } = await supabaseAuth.auth.getUser();
-    if (user) {
-      isOwnProfile = user.id === profile.user_id;
+    if (user?.email) {
+      isOwnProfile = user.email === profile.email;
     }
   } catch {
     // Not logged in or error — leave as false

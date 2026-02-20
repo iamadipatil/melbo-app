@@ -33,6 +33,7 @@ export default function ProfileClient({
   const [savedWorkflows, setSavedWorkflows] = useState<Set<string>>(new Set());
   const [savingPrompt, setSavingPrompt] = useState<string | null>(null);
   const [savingWorkflow, setSavingWorkflow] = useState<string | null>(null);
+  const [showScoreTooltip, setShowScoreTooltip] = useState(false);
 
   const initial = (profile.display_name || profile.username || "?")
     .charAt(0)
@@ -214,7 +215,11 @@ export default function ProfileClient({
             </div>
 
             {/* Right: Score Badge */}
-            <div className="flex flex-col items-center gap-1 shrink-0 relative group cursor-default">
+            <div
+              className="flex flex-col items-center gap-1 shrink-0 relative cursor-default"
+              onMouseEnter={() => setShowScoreTooltip(true)}
+              onMouseLeave={() => setShowScoreTooltip(false)}
+            >
               <div className="relative w-[70px] h-[70px]">
                 <svg
                   viewBox="0 0 70 70"
@@ -251,18 +256,31 @@ export default function ProfileClient({
 
               {/* Hover Tooltip */}
               <div
-                className="absolute top-full mt-3 right-[-50px] sm:right-[-12px] w-[224px] rounded-xl p-4 pb-3 opacity-0 -translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto z-20"
                 style={{
-                  background: "#fff",
+                  position: "absolute",
+                  top: "calc(100% + 12px)",
+                  right: "-12px",
+                  width: "224px",
+                  background: "#ffffff",
                   border: "1px solid #e8e2db",
+                  borderRadius: "12px",
+                  padding: "16px 16px 12px",
                   boxShadow: "0 10px 36px rgba(28, 20, 16, 0.14), 0 2px 6px rgba(28, 20, 16, 0.05)",
+                  opacity: showScoreTooltip ? 1 : 0,
+                  transform: showScoreTooltip ? "translateY(0)" : "translateY(-4px)",
+                  pointerEvents: showScoreTooltip ? "auto" as const : "none" as const,
                   transition: "all 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+                  zIndex: 20,
                 }}
               >
                 {/* Arrow */}
                 <div
-                  className="absolute -top-[6px] right-[66px] sm:right-[28px] w-[10px] h-[10px]"
                   style={{
+                    position: "absolute",
+                    top: "-6px",
+                    right: "28px",
+                    width: "10px",
+                    height: "10px",
                     background: "#fff",
                     borderTop: "1px solid #e8e2db",
                     borderLeft: "1px solid #e8e2db",
@@ -270,25 +288,33 @@ export default function ProfileClient({
                   }}
                 />
                 <div
-                  className="font-mono text-[9px] font-medium uppercase mb-3"
-                  style={{ letterSpacing: "1.4px", color: "#9a8f86" }}
+                  style={{
+                    fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                    fontSize: "9px",
+                    fontWeight: 500,
+                    textTransform: "uppercase",
+                    letterSpacing: "1.4px",
+                    color: "#9a8f86",
+                    marginBottom: "12px",
+                  }}
                 >
                   Score Breakdown
                 </div>
                 {pillarData.map((pillar) => (
-                  <div key={pillar.name} className="mb-2.5 last:mb-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[12px] font-medium" style={{ color: "#5c524a" }}>
+                  <div key={pillar.name} style={{ marginBottom: "10px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 500, color: "#5c524a" }}>
                         {pillar.name}
                       </span>
-                      <span className="font-mono text-[11px] font-semibold" style={{ color: "#1c1410" }}>
+                      <span style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: "11px", fontWeight: 600, color: "#1c1410" }}>
                         {pillar.score}/{pillar.max}
                       </span>
                     </div>
-                    <div className="h-1 rounded-sm overflow-hidden" style={{ background: "#f5f0eb" }}>
+                    <div style={{ height: "4px", borderRadius: "2px", background: "#f5f0eb", overflow: "hidden" }}>
                       <div
-                        className="h-full rounded-sm"
                         style={{
+                          height: "100%",
+                          borderRadius: "2px",
                           background: "#e0734e",
                           width: `${(pillar.score / pillar.max) * 100}%`,
                           transition: "width 0.8s cubic-bezier(0.22, 1, 0.36, 1)",
