@@ -249,8 +249,17 @@ export default function ProfileClient({
               >
                 About
               </div>
-              <div className="text-[14px] leading-[1.78]" style={{ color: "#5c524a" }}>
-                {profile.bio}
+              <div className="text-[14px] leading-[1.78] flex flex-col gap-3" style={{ color: "#5c524a" }}>
+                {profile.bio.split(/\n\s*\n/).map((paragraph, i) => (
+                  <p key={i} className="m-0">
+                    {paragraph.split(/\n/).map((line, j, arr) => (
+                      <span key={j}>
+                        {line}
+                        {j < arr.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </p>
+                ))}
               </div>
             </div>
           )}
